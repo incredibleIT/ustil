@@ -1,0 +1,2 @@
+-- Exam records expansion applied manually
+-- All columns and indexes have been added directly

@@ -1,0 +1,105 @@
+# generated: 2026-04-03
+# last_updated: 2026-04-03T22:25:00
+# project: 沈阳工业大学计算机程序设计社团官方网站
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: "2026-04-03"
+last_updated: "2026-04-11T15:00:00"
+project: "沈阳工业大学计算机程序设计社团官方网站"
+project_key: "NOKEY"
+tracking_system: "file-system"
+story_location: "_bmad-output/implementation-artifacts"
+
+development_status:
+  # Epic 1: 项目初始化与基础架构搭建
+  epic-1: done
+  1-1-backend-project-init: done
+  1-2-frontend-project-init: done
+  1-3-database-design: done
+  1-4-entity-mapper-creation: done
+  1-5-response-exception-handling: done
+  epic-1-retrospective: done
+
+  # Epic 2: 用户认证与成员管理
+  epic-2: done
+  2-1-jwt-auth-infrastructure: done
+  2-2-user-registration: done
+  2-3-user-login: done
+  2-4-profile-management: done
+  2-5-member-list-management: done
+  epic-2-retrospective: done
+
+  # Epic 3: 转正考核系统
+  epic-3: done
+  3-1-promotion-application-entry: done
+  3-2-question-bank-management: done
+  3-3-online-exam: done
+  3-4-project-submission-review: done
+  3-5-promotion-approval-notification: done
+  epic-3-retrospective: done
+
+  # Epic 4: 内容发布与管理
+  epic-4: done
+  4-1-markdown-editor-component: done
+  4-2-news-publish: done
+  4-3-blog-publish: done
+  4-4-content-edit-delete: done
+  epic-4-retrospective: done
+
+  # Epic 5: 内容审核机制
+  epic-5: backlog
+  5-1-review-queue-display: backlog
+  5-2-review-voting: backlog
+  5-3-admin-final-review: backlog
+  5-4-review-record-statistics: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: 内容展示与发现
+  epic-6: backlog
+  6-1-homepage-implementation: backlog
+  
+  6-2-news-list-page: backlog
+  6-3-blog-list-page: backlog
+  6-4-content-detail-page: backlog
+  6-5-personal-homepage: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: 前端 UI 实现
+  epic-7: done
+  7-1-design-system-config: done
+  7-2-base-components-dev: done
+  7-3-layout-components-dev: done
+  7-4-page-implementation: done
+  7-5-responsive-adaptation: done
+  epic-7-retrospective: done
