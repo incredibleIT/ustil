@@ -1,11 +1,23 @@
-# 使用 Eclipse Temurin JDK 17 (Alpine 版本，体积小)
-FROM eclipse-temurin:17-jre-alpine
+# 多阶段构建 - 第一阶段：使用 Maven 编译
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
-# 设置工作目录
 WORKDIR /app
 
-# 复制 Maven 构建的 JAR 文件
-COPY target/cpc-0.0.1-SNAPSHOT.jar app.jar
+# 复制 pom.xml 并下载依赖（利用 Docker 缓存）
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# 复制源代码并构建
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# 第二阶段：使用 JRE 运行
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+# 从构建阶段复制 JAR 文件
+COPY --from=builder /app/target/cpc-0.0.1-SNAPSHOT.jar app.jar
 
 # 暴露端口 8081 (生产环境端口，避开 Jenkins 的 8080)
 EXPOSE 8081
