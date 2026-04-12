@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: ustil-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-yy3908533}
+      MYSQL_DATABASE: syit_cpc
+      MYSQL_USER: ustil_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:-yy3908533}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ustil-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+
+  # 后端 Spring Boot 应用
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ustil-backend
+    restart: always
+    environment:
+      # 数据库配置
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/syit_cpc?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ustil_user
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-yy3908533}
+      # JWT 配置
+      JWT_SECRET: ${JWT_SECRET:-ThisIsASecretKeyForJWTTokenGenerationMustBeAtLeast32CharactersLong}
+      # 日志级别
+      LOGGING_LEVEL_COM_SYIT_CPC: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: WARN
+      # Spring Profile
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ustil-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # 前端 Nginx 静态文件服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ustil-frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - ustil-net
+
+# 网络配置
+networks:
+  ustil-net:
+    driver: bridge
+
+# 数据卷配置
+volumes:
+  mysql_data:
+    driver: local
