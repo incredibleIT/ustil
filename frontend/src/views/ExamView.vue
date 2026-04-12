@@ -191,15 +191,6 @@ function initMultipleAnswers() {
   })
 }
 
-// 初始化多选题答案
-function initMultipleAnswers() {
-  multipleChoiceQuestions.value.forEach(q => {
-    if (!multipleAnswers[q.id]) {
-      multipleAnswers[q.id] = []
-    }
-  })
-}
-
 // 加载试卷
 async function loadPaper() {
   loading.value = true
