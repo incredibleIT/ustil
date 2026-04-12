@@ -9,7 +9,7 @@ COPY package*.json ./
 # 安装依赖 (构建阶段需要 devDependencies)
 # 使用淘宝镜像加速
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm ci && npm cache clean --force
+    npm install && npm cache clean --force
 
 # 复制源代码
 COPY . .
