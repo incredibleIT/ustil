@@ -107,7 +107,7 @@ EOF
                         --name ustil-backend \
                         --restart unless-stopped \
                         -p 8081:8081 \
-                        -e SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/cpc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai \
+                        -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/cpc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
                         -e SPRING_DATASOURCE_USERNAME=root \
                         -e SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD} \
                         -e JWT_SECRET=${JWT_SECRET} \
