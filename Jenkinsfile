@@ -41,10 +41,18 @@ pipeline {
             steps {
                 echo '🔨 构建 Spring Boot Docker 镜像...'
                 sh '''
-                    cd backend
+                    echo "  📂 当前目录: $(pwd)"
+                    echo "  📂 文件列表:"
+                    ls -la backend/
+                    echo ""
                     
                     # 先使用 Maven 构建 JAR
                     echo "  📦 Maven 构建中..."
+                    cd backend
+                    echo "  📂 Backend 目录: $(pwd)"
+                    ls -la
+                    echo ""
+                    
                     docker run --rm \
                         -u root \
                         -v "$(pwd)":/app \
@@ -73,22 +81,22 @@ pipeline {
                 echo '🚀 使用 Docker Compose 部署所有服务...'
                 sh '''
                     # 获取数据库密码和 JWT Secret
-                    export DB_PASSWORD=$(cat /var/jenkins_home/credentials/ustil-db-password 2>/dev/null || echo "yy3908533")
-                    export JWT_SECRET=$(cat /var/jenkins_home/credentials/ustil-jwt-secret 2>/dev/null || echo "ThisIsASecretKeyForJWTTokenGenerationMustBeAtLeast32CharactersLong")
+                    export DB_PASSWORD="yy3908533"
+                    export JWT_SECRET="ThisIsASecretKeyForJWTTokenGenerationMustBeAtLeast32CharactersLong"
                     
                     # 创建 .env 文件
                     cat > .env << EOF
-                    DB_PASSWORD=${DB_PASSWORD}
-                    JWT_SECRET=${JWT_SECRET}
-                    EOF
+DB_PASSWORD=${DB_PASSWORD}
+JWT_SECRET=${JWT_SECRET}
+EOF
                     
                     # 停止旧容器（保留数据卷）
                     echo "  ⏹️  停止旧服务..."
-                    docker compose down || true
+                    docker-compose down || true
                     
                     # 启动所有服务
                     echo "  🚀 启动新服务..."
-                    docker compose up -d
+                    docker-compose up -d
                     
                     # 清理悬空镜像
                     echo "  🧹 清理悬空镜像..."
@@ -163,19 +171,15 @@ pipeline {
         }
         failure {
             echo '❌ 部署失败！查看日志...'
-            sh 'docker compose logs --tail=50 || true'
-            
-            // 发送失败通知（可选）
-            // mail to: 'team@example.com',
-            //      subject: "❌ USTIL 部署失败",
-            //      body: "部署失败，请查看 Jenkins 日志了解详情。"
+            sh 'docker-compose logs --tail=50 backend || true'
+            sh 'docker-compose logs --tail=50 frontend || true'
         }
         always {
             echo '📊 服务状态:'
-            sh 'docker compose ps || true'
+            sh 'docker-compose ps || true'
             
-            // 清理工作空间
-            cleanWs()
+            // 清理工作空间（可选，调试时可以注释掉）
+            // cleanWs()
         }
     }
 }
