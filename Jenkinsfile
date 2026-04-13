@@ -46,22 +46,35 @@ pipeline {
                     ls -la backend/
                     echo ""
                     
-                    # 先使用 Maven 构建 JAR
+                    # 先使用 Maven 构建 JAR（使用临时 Dockerfile 避免 Volume 映射问题）
                     echo "  📦 Maven 构建中..."
                     cd backend
                     echo "  📂 Backend 目录: $(pwd)"
-                    ls -la
+                    echo "  📄 POM 文件: $(ls -l pom.xml 2>/dev/null || echo 'NOT FOUND')"
                     echo ""
                     
-                    docker run --rm \
-                        -u root \
-                        -v "$(pwd)":/app \
-                        -w /app \
-                        maven:3.9-eclipse-temurin-17-alpine \
-                        mvn clean package -DskipTests -q
+                    # 创建临时构建 Dockerfile
+                    cat > Dockerfile.build << 'BUILDEOF'
+                    FROM maven:3.9-eclipse-temurin-17-alpine
+                    WORKDIR /app
+                    COPY . .
+                    RUN mvn clean package -DskipTests -q
+                    BUILDEOF
                     
-                    # 构建 Docker 镜像
-                    echo "  🐳 构建 Docker 镜像..."
+                    # 构建临时镜像
+                    docker build -t temp-maven-build -f Dockerfile.build .
+                    
+                    # 提取 JAR 文件到宿主机
+                    docker run --rm temp-maven-build cat /app/target/*.jar > app.jar
+                    
+                    # 清理临时镜像
+                    docker rmi temp-maven-build
+                    rm -f Dockerfile.build
+                    
+                    echo "  ✅ JAR 文件: $(ls -lh app.jar 2>/dev/null || echo 'NOT FOUND')"
+                    
+                    # 构建生产 Docker 镜像
+                    echo "  🐳 构建生产镜像..."
                     docker build -t ${BACKEND_SERVICE}:latest .
                 '''
             }
@@ -71,7 +84,38 @@ pipeline {
             steps {
                 echo '🎨 构建 Vue.js Docker 镜像...'
                 dir('frontend') {
-                    sh 'docker build -t ${FRONTEND_SERVICE}:latest .'
+                    sh '''
+                        echo "  📂 Frontend 目录: $(pwd)"
+                        echo "  📄 package.json: $(ls -l package.json 2>/dev/null || echo 'NOT FOUND')"
+                        echo ""
+                        
+                        # 创建临时构建 Dockerfile
+                        cat > Dockerfile.build << 'BUILDEOF'
+                        FROM node:20-alpine
+                        WORKDIR /app
+                        COPY . .
+                        ENV NODE_OPTIONS="--max-old-space-size=4096"
+                        RUN npm install
+                        RUN npm run build
+                        BUILDEOF
+                        
+                        # 构建临时镜像
+                        docker build -t temp-node-build -f Dockerfile.build .
+                        
+                        # 提取 dist 目录
+                        mkdir -p dist
+                        docker run --rm temp-node-build tar -c -C /app/dist . | tar -x -C ./dist
+                        
+                        # 清理临时镜像
+                        docker rmi temp-node-build
+                        rm -f Dockerfile.build
+                        
+                        echo "  ✅ Dist 目录: $(ls -lh dist/)"
+                        
+                        # 构建生产 Docker 镜像
+                        echo "  🐳 构建生产镜像..."
+                        docker build -t ${FRONTEND_SERVICE}:latest .
+                    '''
                 }
             }
         }
