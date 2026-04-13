@@ -67,7 +67,7 @@ pipeline {
         
         stage('🚀 部署服务') {
             steps {
-                echo '🚀 使用 Docker Compose 部署所有服务...'
+                echo '🚀 部署所有服务...'
                 sh '''
                     # 获取数据库密码和 JWT Secret
                     export DB_PASSWORD="yy3908533"
@@ -79,13 +79,49 @@ DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 EOF
                     
-                    # 停止旧容器（保留数据卷）
+                    # 停止并删除旧容器
                     echo "  ⏹️  停止旧服务..."
-                    docker compose down || true
+                    docker stop ustil-backend ustil-frontend ustil-mysql || true
+                    docker rm ustil-backend ustil-frontend ustil-mysql || true
                     
-                    # 启动所有服务
-                    echo "  🚀 启动新服务..."
-                    docker compose up -d
+                    # 启动 MySQL
+                    echo "  🗄️  启动 MySQL..."
+                    docker run -d \
+                        --name ustil-mysql \
+                        --restart unless-stopped \
+                        -p 3306:3306 \
+                        -e MYSQL_ROOT_PASSWORD=${DB_PASSWORD} \
+                        -e MYSQL_DATABASE=cpc \
+                        -v mysql_data:/var/lib/mysql \
+                        mysql:8.0 \
+                        --character-set-server=utf8mb4 \
+                        --collation-server=utf8mb4_unicode_ci
+                    
+                    # 等待 MySQL 启动
+                    echo "  ⏳ 等待 MySQL 就绪..."
+                    sleep 10
+                    
+                    # 启动后端
+                    echo "  🚀 启动后端服务..."
+                    docker run -d \
+                        --name ustil-backend \
+                        --restart unless-stopped \
+                        -p 8081:8081 \
+                        -e SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/cpc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai \
+                        -e SPRING_DATASOURCE_USERNAME=root \
+                        -e SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD} \
+                        -e JWT_SECRET=${JWT_SECRET} \
+                        -e SERVER_PORT=8081 \
+                        --link ustil-mysql:mysql \
+                        ustil-backend:latest
+                    
+                    # 启动前端
+                    echo "  🎨 启动前端服务..."
+                    docker run -d \
+                        --name ustil-frontend \
+                        --restart unless-stopped \
+                        -p 80:80 \
+                        ustil-frontend:latest
                     
                     # 清理悬空镜像
                     echo "  🧹 清理悬空镜像..."
@@ -127,7 +163,7 @@ EOF
                     
                     # 检查数据库
                     echo "检查数据库连接..."
-                    docker exec ${MYSQL_SERVICE} mysqladmin ping -h localhost
+                    docker exec ustil-mysql mysqladmin ping -h localhost
                 '''
             }
         }
@@ -160,12 +196,12 @@ EOF
         }
         failure {
             echo '❌ 部署失败！查看日志...'
-            sh 'docker compose logs --tail=50 backend || true'
-            sh 'docker compose logs --tail=50 frontend || true'
+            sh 'docker logs --tail=50 ustil-backend || true'
+            sh 'docker logs --tail=50 ustil-frontend || true'
         }
         always {
             echo '📊 服务状态:'
-            sh 'docker compose ps || true'
+            sh 'docker ps -a --filter "name=ustil" || true'
             
             // 清理工作空间（可选，调试时可以注释掉）
             // cleanWs()
