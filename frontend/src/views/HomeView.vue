@@ -987,7 +987,8 @@ function setupLenisScrollTrigger() {
 </script>
 
 <template>
-  <div class="home-view-wrapper">
+  <!-- 单根节点：包装所有元素 -->
+  <div class="home-view-root">
     <!-- 神经网络背景 -->
     <canvas ref="neuralCanvasRef" class="fixed inset-0 w-full h-full z-0" style="pointer-events: none;"></canvas>
     
@@ -1237,6 +1238,7 @@ function setupLenisScrollTrigger() {
         </p>
       </div>
     </footer>
+  </div>
   </div>
   </div>
 </template>
