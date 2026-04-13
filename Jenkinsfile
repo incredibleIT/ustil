@@ -40,43 +40,14 @@ pipeline {
         stage('🔨 构建后端镜像') {
             steps {
                 echo '🔨 构建 Spring Boot Docker 镜像...'
-                sh '''
-                    echo "  📂 当前目录: $(pwd)"
-                    echo "  📂 文件列表:"
-                    ls -la backend/
-                    echo ""
-                    
-                    # 先使用 Maven 构建 JAR（使用临时 Dockerfile 避免 Volume 映射问题）
-                    echo "  📦 Maven 构建中..."
-                    cd backend
-                    echo "  📂 Backend 目录: $(pwd)"
-                    echo "  📄 POM 文件: $(ls -l pom.xml 2>/dev/null || echo 'NOT FOUND')"
-                    echo ""
-                    
-                    # 创建临时构建 Dockerfile
-                    cat > Dockerfile.build << 'BUILDEOF'
-                    FROM maven:3.9-eclipse-temurin-17-alpine
-                    WORKDIR /app
-                    COPY . .
-                    RUN mvn clean package -DskipTests -q
-                    BUILDEOF
-                    
-                    # 构建临时镜像
-                    docker build -t temp-maven-build -f Dockerfile.build .
-                    
-                    # 提取 JAR 文件到宿主机
-                    docker run --rm temp-maven-build cat /app/target/*.jar > app.jar
-                    
-                    # 清理临时镜像
-                    docker rmi temp-maven-build
-                    rm -f Dockerfile.build
-                    
-                    echo "  ✅ JAR 文件: $(ls -lh app.jar 2>/dev/null || echo 'NOT FOUND')"
-                    
-                    # 构建生产 Docker 镜像
-                    echo "  🐳 构建生产镜像..."
-                    docker build -t ${BACKEND_SERVICE}:latest .
-                '''
+                dir('backend') {
+                    sh '''
+                        echo "  📂 当前目录: $(pwd)"
+                        echo "  📄 POM 文件: $(ls -l pom.xml 2>/dev/null || echo 'NOT FOUND')"
+                        echo ""
+                        docker build -t ${BACKEND_SERVICE}:latest .
+                    '''
+                }
             }
         }
         
@@ -85,35 +56,9 @@ pipeline {
                 echo '🎨 构建 Vue.js Docker 镜像...'
                 dir('frontend') {
                     sh '''
-                        echo "  📂 Frontend 目录: $(pwd)"
+                        echo "  📂 当前目录: $(pwd)"
                         echo "  📄 package.json: $(ls -l package.json 2>/dev/null || echo 'NOT FOUND')"
                         echo ""
-                        
-                        # 创建临时构建 Dockerfile
-                        cat > Dockerfile.build << 'BUILDEOF'
-                        FROM node:20-alpine
-                        WORKDIR /app
-                        COPY . .
-                        ENV NODE_OPTIONS="--max-old-space-size=4096"
-                        RUN npm install
-                        RUN npm run build
-                        BUILDEOF
-                        
-                        # 构建临时镜像
-                        docker build -t temp-node-build -f Dockerfile.build .
-                        
-                        # 提取 dist 目录
-                        mkdir -p dist
-                        docker run --rm temp-node-build tar -c -C /app/dist . | tar -x -C ./dist
-                        
-                        # 清理临时镜像
-                        docker rmi temp-node-build
-                        rm -f Dockerfile.build
-                        
-                        echo "  ✅ Dist 目录: $(ls -lh dist/)"
-                        
-                        # 构建生产 Docker 镜像
-                        echo "  🐳 构建生产镜像..."
                         docker build -t ${FRONTEND_SERVICE}:latest .
                     '''
                 }
@@ -136,11 +81,11 @@ EOF
                     
                     # 停止旧容器（保留数据卷）
                     echo "  ⏹️  停止旧服务..."
-                    docker-compose down || true
+                    docker compose down || true
                     
                     # 启动所有服务
                     echo "  🚀 启动新服务..."
-                    docker-compose up -d
+                    docker compose up -d
                     
                     # 清理悬空镜像
                     echo "  🧹 清理悬空镜像..."
@@ -215,12 +160,12 @@ EOF
         }
         failure {
             echo '❌ 部署失败！查看日志...'
-            sh 'docker-compose logs --tail=50 backend || true'
-            sh 'docker-compose logs --tail=50 frontend || true'
+            sh 'docker compose logs --tail=50 backend || true'
+            sh 'docker compose logs --tail=50 frontend || true'
         }
         always {
             echo '📊 服务状态:'
-            sh 'docker-compose ps || true'
+            sh 'docker compose ps || true'
             
             // 清理工作空间（可选，调试时可以注释掉）
             // cleanWs()
