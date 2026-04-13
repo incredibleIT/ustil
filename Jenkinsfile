@@ -79,6 +79,10 @@ DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 EOF
                     
+                    # 创建 Docker 网络
+                    echo "  🌐 创建 Docker 网络..."
+                    docker network create ustil-network || true
+                    
                     # 停止并删除旧容器
                     echo "  ⏹️  停止旧服务..."
                     docker stop ustil-backend ustil-frontend ustil-mysql || true
@@ -88,6 +92,7 @@ EOF
                     echo "  🗄️  启动 MySQL..."
                     docker run -d \
                         --name ustil-mysql \
+                        --network ustil-network \
                         --restart unless-stopped \
                         -p 3306:3306 \
                         -e MYSQL_ROOT_PASSWORD=${DB_PASSWORD} \
@@ -105,20 +110,21 @@ EOF
                     echo "  🚀 启动后端服务..."
                     docker run -d \
                         --name ustil-backend \
+                        --network ustil-network \
                         --restart unless-stopped \
                         -p 8081:8081 \
-                        -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/cpc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
+                        -e "SPRING_DATASOURCE_URL=jdbc:mysql://ustil-mysql:3306/cpc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai" \
                         -e SPRING_DATASOURCE_USERNAME=root \
                         -e SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD} \
                         -e JWT_SECRET=${JWT_SECRET} \
                         -e SERVER_PORT=8081 \
-                        --link ustil-mysql:mysql \
                         ustil-backend:latest
                     
                     # 启动前端
                     echo "  🎨 启动前端服务..."
                     docker run -d \
                         --name ustil-frontend \
+                        --network ustil-network \
                         --restart unless-stopped \
                         -p 80:80 \
                         ustil-frontend:latest
