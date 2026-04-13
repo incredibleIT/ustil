@@ -5,7 +5,7 @@
  * 1. 功能按钮区域替换为真实页面的按钮逻辑
  * 2. 添加认证、路由等真实功能
  */
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
@@ -51,10 +51,11 @@ const handleLogout = () => {
   window.location.reload()
 }
 
+// 变量声明（必须在清理函数之前）
 let lenis: Lenis | null = null
 let animationId: number | null = null
-let propagationIntervalId: number | null = null // 保存 setInterval ID
-let lenisRafId: number | null = null // 保存 Lenis RAF ID
+let propagationIntervalId: number | null = null
+let lenisRafId: number | null = null
 let neurons: Neuron[] = []
 let synapses: Synapse[] = []
 let pulses: Pulse[] = []
@@ -67,6 +68,76 @@ let propagationDirection: 'forward' | 'backward' = 'forward'
 let lastPropagationTime = 0
 let hoveredSynapse: Synapse | null = null
 let hoveredNeuron: Neuron | null = null
+
+// 清理函数
+const cleanupLenis = () => {
+  if (!lenis) return
+  try {
+    if (lenisRafId !== null) {
+      cancelAnimationFrame(lenisRafId)
+      lenisRafId = null
+    }
+    lenis.destroy()
+    lenis = null
+    console.log('✅ Lenis destroyed')
+  } catch (error) {
+    console.warn('⚠️ Error destroying Lenis:', error)
+  }
+}
+
+const stopAllAnimations = () => {
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId)
+    animationId = null
+  }
+  
+  if (lenisRafId !== null) {
+    cancelAnimationFrame(lenisRafId)
+    lenisRafId = null
+  }
+  
+  if (propagationIntervalId !== null) {
+    clearInterval(propagationIntervalId)
+    propagationIntervalId = null
+  }
+}
+
+const removeAllListeners = () => {
+  window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('resize', handleResize)
+}
+
+// 封装路由跳转函数，确保清理完成后再跳转
+const navigateTo = async (path: string) => {
+  console.log('🚀 Navigating to:', path)
+  
+  // 1. 立即执行清理
+  if (neuralCanvasRef.value) {
+    neuralCanvasRef.value.style.display = 'none'
+    neuralCanvasRef.value.style.visibility = 'hidden'
+    neuralCanvasRef.value.style.opacity = '0'
+  }
+  
+  stopAllAnimations()
+  removeAllListeners()
+  cleanupLenis()
+  
+  try {
+    ScrollTrigger.getAll().forEach(trigger => trigger.kill())
+  } catch (error) {
+    console.warn('⚠️ Error cleaning ScrollTrigger:', error)
+  }
+  
+  // 2. 等待下一帧
+  await nextTick()
+  
+  // 3. 执行路由跳转
+  router.push(path).catch(err => {
+    if (err.name !== 'NavigationDuplicated') {
+      console.error('Navigation error:', err)
+    }
+  })
+}
 
 // 神经网络层结构
 interface Neuron {
@@ -136,33 +207,45 @@ onMounted(() => {
   console.log('✅ HomeView initialization complete')
 })
 
+onBeforeUnmount(() => {
+  console.log('🧹 HomeView onBeforeUnmount - immediate cleanup...')
+  
+  // 1. 立即隐藏 Canvas
+  if (neuralCanvasRef.value) {
+    neuralCanvasRef.value.style.display = 'none'
+    neuralCanvasRef.value.style.visibility = 'hidden'
+    neuralCanvasRef.value.style.opacity = '0'
+  }
+  
+  // 2. 立即停止所有动画
+  stopAllAnimations()
+  
+  // 3. 立即移除事件监听器
+  removeAllListeners()
+  
+  // 4. 立即清理 Lenis
+  cleanupLenis()
+  
+  // 5. 立即清理所有 GSAP ScrollTrigger
+  try {
+    ScrollTrigger.getAll().forEach(trigger => trigger.kill())
+    console.log('✅ ScrollTrigger cleaned')
+  } catch (error) {
+    console.warn('⚠️ Error cleaning ScrollTrigger:', error)
+  }
+  
+  // 6. 确保滚动回到顶部
+  window.scrollTo(0, 0)
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  
+  console.log('✅ HomeView immediate cleanup done')
+})
+
 onUnmounted(() => {
-  console.log('🧹 HomeView onUnmounted - cleaning up...')
+  console.log('🧹 HomeView onUnmounted - deferred cleanup...')
   
-  // 1. 停止所有动画循环
-  if (animationId !== null) {
-    cancelAnimationFrame(animationId)
-    animationId = null
-  }
-  
-  if (lenisRafId !== null) {
-    cancelAnimationFrame(lenisRafId)
-    lenisRafId = null
-  }
-  
-  if (propagationIntervalId !== null) {
-    clearInterval(propagationIntervalId)
-    propagationIntervalId = null
-  }
-  
-  // 2. 清理GSAP ScrollTrigger
-  ScrollTrigger.getAll().forEach(trigger => trigger.kill())
-  
-  // 3. 移除事件监听器
-  window.removeEventListener('mousemove', handleMouseMove)
-  window.removeEventListener('resize', handleResize)
-  
-  // 4. 清理Canvas
+  // 清理Canvas上下文
   try {
     if (neuralCanvasRef.value) {
       const ctx = neuralCanvasRef.value.getContext('2d')
@@ -174,21 +257,7 @@ onUnmounted(() => {
     console.warn('⚠️ Error clearing Canvas:', error)
   }
   
-  // 5. 异步清理 Lenis（避免阻塞）
-  if (lenis) {
-    requestAnimationFrame(() => {
-      try {
-        if (lenis) {
-          lenis.destroy()
-          lenis = null
-        }
-      } catch (error) {
-        console.warn('⚠️ Error destroying Lenis:', error)
-      }
-    })
-  }
-  
-  console.log('✅ HomeView cleanup complete')
+  console.log('✅ HomeView deferred cleanup complete')
 })
 
 /**
@@ -1042,7 +1111,7 @@ function setupLenisScrollTrigger() {
           <AppButton
             variant="primary"
             size="lg"
-            @click="router.push('/register')"
+            @click="navigateTo('/register')"
             class="action-btn-poc px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
           >
             <span class="flex items-center">
@@ -1056,7 +1125,7 @@ function setupLenisScrollTrigger() {
           <AppButton
             variant="outline"
             size="lg"
-            @click="router.push('/login')"
+            @click="navigateTo('/login')"
             class="action-btn-poc px-10 py-5 border-2 border-indigo-300 text-indigo-600 rounded-xl font-bold text-lg bg-white/50 backdrop-blur-sm hover:border-indigo-500 hover:bg-indigo-50 hover:scale-105 transition-all duration-300"
           >
             登录
@@ -1069,7 +1138,7 @@ function setupLenisScrollTrigger() {
             v-if="isAdmin"
             variant="primary"
             size="lg"
-            @click="router.push('/admin/members')"
+            @click="navigateTo('/admin/members')"
             class="action-btn-poc px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
           >
             <span class="flex items-center">
@@ -1084,7 +1153,7 @@ function setupLenisScrollTrigger() {
             v-if="isAdmin"
             variant="primary"
             size="lg"
-            @click="router.push('/admin/questions')"
+            @click="navigateTo('/admin/questions')"
             class="action-btn-poc px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
           >
             <span class="flex items-center">
@@ -1099,7 +1168,7 @@ function setupLenisScrollTrigger() {
             v-if="isProbation"
             variant="primary"
             size="lg"
-            @click="router.push('/promotion')"
+            @click="navigateTo('/promotion')"
             class="action-btn-poc px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
           >
             <span class="flex items-center">
@@ -1113,7 +1182,7 @@ function setupLenisScrollTrigger() {
           <AppButton
             variant="primary"
             size="lg"
-            @click="router.push('/profile')"
+            @click="navigateTo('/profile')"
             class="action-btn-poc px-10 py-5 border-2 border-indigo-300 text-indigo-600 rounded-xl font-bold text-lg bg-white/50 backdrop-blur-sm hover:border-indigo-500 hover:bg-indigo-50 hover:scale-105 transition-all duration-300"
           >
             个人资料
@@ -1238,9 +1307,8 @@ function setupLenisScrollTrigger() {
         </p>
       </div>
     </footer>
-  </div>
-  </div>
-  </div>
+    </div><!-- 关闭 home-jiejoe -->
+  </div><!-- 关闭 home-view-root -->
 </template>
 
 <style scoped>

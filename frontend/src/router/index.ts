@@ -183,7 +183,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized): any => {
+router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized) => {
   const authStore = useAuthStore()
   const isAuthenticated = authStore.isAuthenticated
   

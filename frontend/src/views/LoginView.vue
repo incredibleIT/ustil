@@ -131,6 +131,7 @@ const handleSubmit = async () => {
   padding: 20px;
   position: relative;
   overflow: hidden;
+  z-index: 1;
 }
 
 /* 背景装饰 */
