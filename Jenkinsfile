@@ -1,6 +1,11 @@
 pipeline {
     agent any
     
+    options {
+        // 使用 root 用户执行，避免 Docker 权限问题
+        disableConcurrentBuilds()
+    }
+    
     environment {
         // 服务名称
         BACKEND_SERVICE = 'ustil-backend'
@@ -35,19 +40,22 @@ pipeline {
         stage('🔨 构建后端镜像') {
             steps {
                 echo '🔨 构建 Spring Boot Docker 镜像...'
-                dir('backend') {
-                    sh '''
-                        # 先使用 Maven 构建 JAR
-                        docker run --rm \
-                            -v "$PWD":/app \
-                            -w /app \
-                            maven:3.9-eclipse-temurin-17-alpine \
-                            mvn clean package -DskipTests
-                        
-                        # 构建 Docker 镜像
-                        docker build -t ${BACKEND_SERVICE}:latest .
-                    '''
-                }
+                sh '''
+                    cd backend
+                    
+                    # 先使用 Maven 构建 JAR
+                    echo "  📦 Maven 构建中..."
+                    docker run --rm \
+                        -u root \
+                        -v "$(pwd)":/app \
+                        -w /app \
+                        maven:3.9-eclipse-temurin-17-alpine \
+                        mvn clean package -DskipTests -q
+                    
+                    # 构建 Docker 镜像
+                    echo "  🐳 构建 Docker 镜像..."
+                    docker build -t ${BACKEND_SERVICE}:latest .
+                '''
             }
         }
         
@@ -64,6 +72,10 @@ pipeline {
             steps {
                 echo '🚀 使用 Docker Compose 部署所有服务...'
                 sh '''
+                    # 获取数据库密码和 JWT Secret
+                    export DB_PASSWORD=$(cat /var/jenkins_home/credentials/ustil-db-password 2>/dev/null || echo "yy3908533")
+                    export JWT_SECRET=$(cat /var/jenkins_home/credentials/ustil-jwt-secret 2>/dev/null || echo "ThisIsASecretKeyForJWTTokenGenerationMustBeAtLeast32CharactersLong")
+                    
                     # 创建 .env 文件
                     cat > .env << EOF
                     DB_PASSWORD=${DB_PASSWORD}
@@ -71,12 +83,15 @@ pipeline {
                     EOF
                     
                     # 停止旧容器（保留数据卷）
+                    echo "  ⏹️  停止旧服务..."
                     docker compose down || true
                     
                     # 启动所有服务
+                    echo "  🚀 启动新服务..."
                     docker compose up -d
                     
                     # 清理悬空镜像
+                    echo "  🧹 清理悬空镜像..."
                     docker image prune -f
                 '''
             }
@@ -148,7 +163,7 @@ pipeline {
         }
         failure {
             echo '❌ 部署失败！查看日志...'
-            sh 'docker compose logs --tail=100'
+            sh 'docker compose logs --tail=50 || true'
             
             // 发送失败通知（可选）
             // mail to: 'team@example.com',
@@ -157,7 +172,7 @@ pipeline {
         }
         always {
             echo '📊 服务状态:'
-            sh 'docker compose ps'
+            sh 'docker compose ps || true'
             
             // 清理工作空间
             cleanWs()
