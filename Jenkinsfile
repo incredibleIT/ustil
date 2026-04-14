@@ -147,9 +147,9 @@ EOF
             steps {
                 echo '✅ 检查服务健康状态...'
                 sh '''
-                    # 获取宿主机 IP (Docker 网关)
-                    HOST_IP=$(ip route | grep default | awk '{print $3}')
-                    echo "宿主机 IP: $HOST_IP"
+                    # 使用服务器公网 IP
+                    HOST_IP="47.121.200.41"
+                    echo "服务器 IP: $HOST_IP"
                     
                     # 检查后端
                     echo "检查后端健康状态..."
@@ -182,8 +182,8 @@ EOF
             steps {
                 echo '📊 验证 API 端点...'
                 sh '''
-                    # 获取宿主机 IP
-                    HOST_IP=$(ip route | grep default | awk '{print $3}')
+                    # 使用服务器公网 IP
+                    HOST_IP="47.121.200.41"
                     
                     # 测试 API 根路径
                     curl -f http://${HOST_IP}:8081/api/test > /dev/null 2>&1 || echo "⚠️ API 测试端点不可用"
