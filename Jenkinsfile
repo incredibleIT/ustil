@@ -147,10 +147,14 @@ EOF
             steps {
                 echo '✅ 检查服务健康状态...'
                 sh '''
+                    # 获取宿主机 IP (Docker 网关)
+                    HOST_IP=$(ip route | grep default | awk '{print $3}')
+                    echo "宿主机 IP: $HOST_IP"
+                    
                     # 检查后端
                     echo "检查后端健康状态..."
                     for i in {1..10}; do
-                        if curl -f http://localhost:8081/actuator/health > /dev/null 2>&1; then
+                        if curl -f http://${HOST_IP}:8081/actuator/health > /dev/null 2>&1; then
                             echo "✅ 后端服务正常"
                             break
                         fi
@@ -160,7 +164,7 @@ EOF
                     
                     # 检查前端
                     echo "检查前端服务..."
-                    if curl -f http://localhost:80 > /dev/null 2>&1; then
+                    if curl -f http://${HOST_IP}:80 > /dev/null 2>&1; then
                         echo "✅ 前端服务正常"
                     else
                         echo "❌ 前端服务异常"
@@ -178,11 +182,14 @@ EOF
             steps {
                 echo '📊 验证 API 端点...'
                 sh '''
+                    # 获取宿主机 IP
+                    HOST_IP=$(ip route | grep default | awk '{print $3}')
+                    
                     # 测试 API 根路径
-                    curl -f http://localhost:8081/api/test > /dev/null 2>&1 || echo "⚠️ API 测试端点不可用"
+                    curl -f http://${HOST_IP}:8081/api/test > /dev/null 2>&1 || echo "⚠️ API 测试端点不可用"
                     
                     # 测试 Swagger
-                    curl -f http://localhost:8081/api-docs > /dev/null 2>&1 && echo "✅ Swagger 文档可用" || echo "⚠️ Swagger 文档不可用"
+                    curl -f http://${HOST_IP}:8081/api-docs > /dev/null 2>&1 && echo "✅ Swagger 文档可用" || echo "⚠️ Swagger 文档不可用"
                 '''
             }
         }
